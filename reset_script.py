@@ -103,14 +103,13 @@ def reset_database():
             with open(INIT_SQL_PATH, 'r', encoding='utf-8') as f:
                 sql_script = f.read()
             
-            # Connect to MySQL as root (no database specified for DROP/CREATE operations)
+            # Connect to MySQL as root
             connection = pymysql.connect(
                 host=MYSQL_HOST,
                 user='root',
                 password=MYSQL_ROOT_PASSWORD,
                 charset='utf8mb4',
-                cursorclass=DictCursor,
-                autocommit=False
+                cursorclass=DictCursor
             )
             
             try:
@@ -120,35 +119,18 @@ def reset_database():
                     
                     logger.info(f"📝 Executing {len(statements)} SQL statements...")
                     
-                    executed_count = 0
                     for idx, statement in enumerate(statements, 1):
                         # Skip comments and empty statements
-                        if not statement or statement.startswith('--'):
-                            continue
-                        
-                        # Remove inline comments
-                        clean_statement = statement.split('--')[0].strip()
-                        if not clean_statement:
+                        if statement.startswith('--') or not statement:
                             continue
                         
                         try:
-                            cursor.execute(clean_statement)
-                            executed_count += 1
-                            
-                            # Log important operations
-                            if any(keyword in clean_statement.upper() for keyword in ['DROP DATABASE', 'CREATE DATABASE', 'CREATE TABLE', 'CREATE USER']):
-                                logger.debug(f"Executed: {clean_statement[:80]}...")
-                                
+                            cursor.execute(statement)
                         except pymysql.Error as e:
-                            # Log warnings but continue for non-critical errors
-                            if 'already exists' in str(e).lower() or 'operation drop user' in str(e).lower():
-                                logger.debug(f"Statement {idx} warning (continuing): {e}")
-                            else:
-                                logger.warning(f"Statement {idx} error: {e}")
-                                logger.warning(f"Failed statement: {clean_statement[:200]}")
+                            # Some statements like USE might fail, log but continue
+                            logger.debug(f"Statement {idx} note: {e}")
                     
                     connection.commit()
-                    logger.info(f"✅ Successfully executed {executed_count} SQL statements")
                 
                 # Update state
                 last_reset_time = datetime.now()

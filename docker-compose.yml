@@ -1,18 +1,6 @@
-# ============================================================================
-# CTF Database Platform - Docker Compose Configuration
-# ============================================================================
-# Purpose: Orchestrate MySQL database and automated reset service
-# Services:
-#   - db: MySQL 5.7 with intentional vulnerabilities for CTF challenges
-#   - refresher: Automated database reset service with manual trigger
-# ============================================================================
-
 version: '3.8'
 
 services:
-  # ==========================================================================
-  # MySQL Database Service
-  # ==========================================================================
   db:
     image: mysql:5.7
     container_name: ctf_mysql_db

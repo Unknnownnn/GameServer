@@ -1,13 +1,13 @@
 -- ============================================================================
--- CTF Database Initialization Script
+-- CTOP University Database Initialization Script
 -- Purpose: Educational database with intentional vulnerabilities for CTF
 -- Vulnerabilities: SQL Injection in Login, IDOR in Grades/Fees/Messages
 -- ============================================================================
 
--- Create the CTF database
-DROP DATABASE IF EXISTS ctf_db;
-CREATE DATABASE ctf_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE ctf_db;
+-- Create the CTOP University database
+DROP DATABASE IF EXISTS ctop_university;
+CREATE DATABASE ctop_university CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE ctop_university;
 
 -- ============================================================================
 -- TABLE 1: users (Login credentials table)
@@ -312,49 +312,16 @@ INSERT INTO payments (student_id, fee_id, amount, payment_method, transaction_id
 (5, 4, 75000.00, 'Credit Card', 'TXN2024080154321');
 
 -- ============================================================================
--- CREATE APPLICATION USERS
--- Grant necessary privileges to the CTF application
+-- CREATE APPLICATION USER
+-- Grant necessary privileges to the CTOP application
 -- ============================================================================
 CREATE USER IF NOT EXISTS 'ctop_user'@'%' IDENTIFIED BY 'ctop_secure_2024';
-GRANT SELECT, INSERT, UPDATE, DELETE ON ctf_db.* TO 'ctop_user'@'%';
-
-CREATE USER IF NOT EXISTS 'ctf_player'@'%' IDENTIFIED BY 'player_password_456';
-GRANT SELECT, INSERT, UPDATE, DELETE ON ctf_db.* TO 'ctf_player'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON ctop_university.* TO 'ctop_user'@'%';
 FLUSH PRIVILEGES;
-
--- ============================================================================
--- CREATE ADDITIONAL TABLES FOR CTF CHALLENGES
--- ============================================================================
-
--- Table for SQL Truncation Attack vulnerability
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(20) NOT NULL UNIQUE,
-    password VARCHAR(64) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
--- Table for Race Condition vulnerability
-CREATE TABLE IF NOT EXISTS coupons (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(50) NOT NULL UNIQUE,
-    description VARCHAR(200),
-    discount_value DECIMAL(10,2),
-    max_uses INT DEFAULT 1,
-    current_uses INT DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_code (code)
-) ENGINE=InnoDB;
-
--- Seed data for coupons
-INSERT INTO coupons (code, description, discount_value, max_uses, current_uses) VALUES 
-('WELCOME10', '10% discount for new users', 10.00, 1, 0),
-('FLASH50', 'Flash sale - 50% off', 50.00, 1, 0),
-('VIP100', 'VIP exclusive - $100 off', 100.00, 1, 0);
 
 -- ============================================================================
 -- Initialization Complete
 -- ============================================================================
-SELECT 'CTF Database initialized successfully!' AS Status;
-SELECT 'Login credentials: admin/admin2024, alice.sharma/password, etc.' AS Info;
-SELECT 'Database contains multiple tables with intentional vulnerabilities' AS Schema;
+SELECT 'CTOP University Database initialized successfully!' AS Status;
+SELECT 'Login credentials: admin/admin123, alice.sharma/password123, etc.' AS Info;
+SELECT 'Database contains 8 tables: students, courses, enrollments, grades, fees, messages, payments, secrets' AS Schema;
