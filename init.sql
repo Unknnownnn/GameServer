@@ -323,5 +323,5 @@ FLUSH PRIVILEGES;
 -- Initialization Complete
 -- ============================================================================
 SELECT 'CTOP University Database initialized successfully!' AS Status;
-SELECT 'Login credentials: admin/admin123, alice.sharma/password123, etc.' AS Info;
-SELECT 'Database contains 8 tables: students, courses, enrollments, grades, fees, messages, payments, secrets' AS Schema;
+SELECT 'Login credentials: admin/admin2024, alice.sharma/[MD5_collision], etc.' AS Info;
+SELECT 'Database contains 8 tables: users, courses, enrollments, grades, fees, messages, payments, secrets' AS `Schema`;

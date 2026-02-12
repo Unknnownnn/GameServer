@@ -77,14 +77,18 @@ def test_reset():
         # Verify the reset
         print("\n🔍 Verifying database state...")
         with connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) as count FROM ctf_db.users")
+            cursor.execute("SELECT COUNT(*) as count FROM ctop_university.users")
             user_count = cursor.fetchone()['count']
             
-            cursor.execute("SELECT COUNT(*) as count FROM ctf_db.secrets")
+            cursor.execute("SELECT COUNT(*) as count FROM ctop_university.secrets")
             secret_count = cursor.fetchone()['count']
+            
+            cursor.execute("SELECT COUNT(*) as count FROM ctop_university.messages")
+            message_count = cursor.fetchone()['count']
             
             print(f"   Users: {user_count}")
             print(f"   Secrets: {secret_count}")
+            print(f"   Messages: {message_count}")
         
         print("\n" + "=" * 70)
         print("✅ Database reset completed successfully!")
