@@ -239,8 +239,7 @@ INSERT INTO messages (sender_id, recipient_id, subject, content, is_read) VALUES
  'Diana, your hostel has been allotted. Block: A, Room: 305. Access code: H-2024-A305', FALSE),
 (1, 6, 'Fee Payment Reminder', 
  'Eve, your semester fees are overdue. Please clear dues immediately to avoid academic hold.', FALSE),
-(3, 2, 'Re: Study Group', 
- 'Sure Alice! Let\'s meet at the library tomorrow at 4 PM.', TRUE),
+(3, 2, 'Re: Study Group', 'Sure Alice! Lets meet at the library tomorrow at 4 PM.', TRUE),
 (1, 2, 'Grade Update - CS301', 
  'Alice, your CS301 assignment grades have been updated. Please check the portal.', FALSE);
 
