@@ -86,6 +86,7 @@ def reset_database():
     """
     Completely drop and recreate the database from init.sql.
     This ensures all data is reset to original values, overwriting any changes.
+    Uses the verified working logic from test_reset.py.
     Returns: (success: bool, message: str)
     """
     global last_reset_time, reset_count
@@ -101,10 +102,12 @@ def reset_database():
                 logger.error(f"❌ {error_msg}")
                 return False, error_msg
             
+            logger.info(f"📝 Reading init.sql from {INIT_SQL_PATH}")
             with open(INIT_SQL_PATH, 'r', encoding='utf-8') as f:
                 sql_script = f.read()
             
             # Connect to MySQL as root (without specifying a database)
+            logger.info(f"🔌 Connecting to MySQL at {MYSQL_HOST}...")
             connection = pymysql.connect(
                 host=MYSQL_HOST,
                 user='root',
@@ -115,28 +118,31 @@ def reset_database():
             
             try:
                 with connection.cursor() as cursor:
-                    # Step 1: Explicitly drop the database to ensure clean slate
+                    # Step 1: Explicitly drop the database for a clean slate
                     logger.info("🗑️  Dropping existing database...")
                     cursor.execute("DROP DATABASE IF EXISTS ctop_university")
                     connection.commit()
+                    logger.info("✅ Database dropped")
                     
-                    # Step 2: Split and execute all statements from init.sql
-                    # Remove comments and split by semicolons
-                    statements = []
+                    # Step 2: Remove comments and clean SQL
+                    logger.info("📝 Cleaning SQL statements...")
+                    cleaned_statements = []
                     for line in sql_script.split('\n'):
                         line = line.strip()
                         # Skip empty lines and comment-only lines
                         if not line or line.startswith('--'):
                             continue
-                        statements.append(line)
+                        cleaned_statements.append(line)
                     
-                    # Join back and split by semicolons
-                    cleaned_sql = ' '.join(statements)
+                    # Join and split by semicolons
+                    cleaned_sql = ' '.join(cleaned_statements)
                     statements = [stmt.strip() for stmt in cleaned_sql.split(';') if stmt.strip()]
                     
                     logger.info(f"📝 Executing {len(statements)} SQL statements...")
                     
+                    # Step 3: Execute all statements
                     executed = 0
+                    errors = 0
                     for idx, statement in enumerate(statements, 1):
                         if not statement or len(statement) < 5:
                             continue
@@ -145,12 +151,28 @@ def reset_database():
                             cursor.execute(statement)
                             executed += 1
                         except pymysql.Error as e:
-                            # Log errors but continue execution
-                            logger.warning(f"Statement {idx} warning: {e}")
-                            logger.debug(f"Failed statement: {statement[:100]}...")
+                            errors += 1
+                            if errors <= 3:  # Only log first 3 errors
+                                logger.warning(f"Statement {idx} warning: {e}")
                     
                     connection.commit()
-                    logger.info(f"✅ Executed {executed} statements successfully")
+                    logger.info(f"✅ Executed {executed} statements successfully ({errors} warnings)")
+                
+                # Verify the reset
+                logger.info("🔍 Verifying database state...")
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT COUNT(*) as count FROM ctop_university.users")
+                    user_count = cursor.fetchone()['count']
+                    
+                    cursor.execute("SELECT COUNT(*) as count FROM ctop_university.secrets")
+                    secret_count = cursor.fetchone()['count']
+                    
+                    cursor.execute("SELECT COUNT(*) as count FROM ctop_university.messages")
+                    message_count = cursor.fetchone()['count']
+                    
+                    logger.info(f"   Users: {user_count}")
+                    logger.info(f"   Secrets: {secret_count}")
+                    logger.info(f"   Messages: {message_count}")
                 
                 # Update state
                 last_reset_time = datetime.now()
@@ -282,12 +304,12 @@ def index():
 # ============================================================================
 
 def get_db_connection():
-    """Get MySQL connection for API endpoints (uses ctf_player credentials)."""
+    """Get MySQL connection for API endpoints (uses ctop_user credentials)."""
     return pymysql.connect(
         host=MYSQL_HOST,
-        user='ctf_player',
-        password='player_password_456',
-        database='ctf_db',
+        user='ctop_user',
+        password='ctop_secure_2024',
+        database='ctop_university',
         charset='utf8mb4',
         cursorclass=DictCursor
     )
@@ -563,7 +585,7 @@ def database_info():
         connection.close()
         
         return jsonify({
-            'database': 'ctf_db',
+            'database': 'ctop_university',
             'tables': tables,
             'record_counts': stats,
             'message': 'Database resets every 15 minutes'
