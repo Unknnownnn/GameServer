@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-Simple test script to perform a one-time database reset from host machine.
-Usage: python test_reset.py
+Database reset script - can run once or continuously every 15 minutes.
+Usage: 
+  python test_reset.py          # Run once
+  python test_reset.py --loop   # Run every 15 minutes (900 seconds)
 """
 
 import os
+import sys
+import time
+from datetime import datetime
 import pymysql
 from pymysql.cursors import DictCursor
 
@@ -125,12 +130,47 @@ def test_reset():
         connection.close()
 
 if __name__ == '__main__':
-    try:
-        success = test_reset()
-        exit(0 if success else 1)
-    except KeyboardInterrupt:
-        print("\n\n⚠️  Operation cancelled by user")
-        exit(1)
-    except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
-        exit(1)
+    # Check if loop mode is requested
+    loop_mode = '--loop' in sys.argv or '-l' in sys.argv
+    reset_interval = 900  # 15 minutes in seconds
+    
+    if loop_mode:
+        print("=" * 70)
+        print("🔄 CONTINUOUS RESET MODE")
+        print(f"   Reset Interval: {reset_interval} seconds ({reset_interval/60:.1f} minutes)")
+        print("   Press Ctrl+C to stop")
+        print("=" * 70)
+        print()
+        
+        reset_count = 0
+        try:
+            while True:
+                reset_count += 1
+                print(f"\n{'=' * 70}")
+                print(f"⏰ SCHEDULED RESET #{reset_count} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"{'=' * 70}\n")
+                
+                success = test_reset()
+                
+                if success:
+                    print(f"\n⏰ Next reset in {reset_interval} seconds ({reset_interval/60:.1f} minutes)...")
+                    print(f"   Next reset at: {datetime.fromtimestamp(time.time() + reset_interval).strftime('%Y-%m-%d %H:%M:%S')}")
+                else:
+                    print(f"\n⚠️  Reset failed, will retry in {reset_interval} seconds...")
+                
+                time.sleep(reset_interval)
+                
+        except KeyboardInterrupt:
+            print(f"\n\n⚠️  Continuous reset stopped by user after {reset_count} resets")
+            exit(0)
+    else:
+        # Single run mode
+        try:
+            success = test_reset()
+            exit(0 if success else 1)
+        except KeyboardInterrupt:
+            print("\n\n⚠️  Operation cancelled by user")
+            exit(1)
+        except Exception as e:
+            print(f"\n❌ Unexpected error: {e}")
+            exit(1)
