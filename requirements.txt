@@ -1,0 +1,18 @@
+# ============================================================================
+# CTF Database Platform - Python Dependencies
+# ============================================================================
+# These packages are required for:
+# 1. Reset service (reset_script.py)
+# 2. Verification script (verify_vulnerabilities.py)
+# ============================================================================
+
+# Core dependencies for reset service
+flask==3.0.0
+pymysql==1.1.0
+cryptography==41.0.7
+
+# Additional dependencies for verification script
+requests==2.31.0
+
+# Optional: For enhanced development experience
+python-dotenv==1.0.0

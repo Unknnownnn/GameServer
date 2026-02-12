@@ -1,0 +1,55 @@
+# ============================================================================
+# CTF Database Reset Service - Dockerfile
+# ============================================================================
+# Purpose: Container image for automated database reset and watchdog service
+# Base: Python 3.11 slim for lightweight deployment
+# ============================================================================
+
+FROM python:3.11-slim
+
+# Metadata
+LABEL maintainer="CTF Platform Team"
+LABEL description="Automated database reset service for CTF platform"
+LABEL version="1.0.0"
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies (if needed for MySQL client libraries)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    default-libmysqlclient-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    flask==3.0.0 \
+    pymysql==1.1.0 \
+    cryptography==41.0.7
+
+# Copy the reset script
+COPY reset_script.py /app/reset_script.py
+
+# Make script executable
+RUN chmod +x /app/reset_script.py
+
+# Create directory for init.sql (will be mounted via volume)
+RUN mkdir -p /docker-entrypoint-initdb.d
+
+# Environment variables (can be overridden in docker-compose)
+ENV MYSQL_HOST=db
+ENV MYSQL_ROOT_PASSWORD=super_secure_root_password_123
+ENV RESET_INTERVAL=900
+ENV INIT_SQL_PATH=/docker-entrypoint-initdb.d/init.sql
+ENV PYTHONUNBUFFERED=1
+
+# Expose Flask port
+EXPOSE 5001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')" || exit 1
+
+# Run the reset script
+ENTRYPOINT ["python", "/app/reset_script.py"]

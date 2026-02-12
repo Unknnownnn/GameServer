@@ -1,0 +1,138 @@
+# ============================================================================
+# CTF Database Platform - Docker Compose Configuration
+# ============================================================================
+# Purpose: Orchestrate MySQL database and automated reset service
+# Services:
+#   - db: MySQL 5.7 with intentional vulnerabilities for CTF challenges
+#   - refresher: Automated database reset service with manual trigger
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # MySQL Database Service
+  # ==========================================================================
+  db:
+    image: mysql:5.7
+    container_name: ctf_mysql_db
+    restart: unless-stopped
+    
+    # MySQL Configuration
+    environment:
+      # Root credentials
+      MYSQL_ROOT_PASSWORD: super_secure_root_password_123
+      
+      # Database initialization
+      MYSQL_DATABASE: ctf_db
+      
+      # Character set configuration
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    
+    # MySQL command-line options
+    # CRITICAL: sql_mode='' enables truncation attacks and other vulnerabilities
+    command: >
+      --sql-mode=''
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+      --default-authentication-plugin=mysql_native_password
+    
+    # Port mapping
+    ports:
+      - "3306:3306"
+    
+    # Volume mounts
+    volumes:
+      # Mount init.sql for initial database setup
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      
+      # Persistent database storage (optional - comment out for ephemeral storage)
+      - mysql_data:/var/lib/mysql
+      
+      # MySQL configuration (optional custom config)
+      # - ./mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    
+    # Networking
+    networks:
+      - ctf_network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-psuper_secure_root_password_123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ==========================================================================
+  # Database Reset & Watchdog Service
+  # ==========================================================================
+  refresher:
+    build:
+      context: .
+      dockerfile: Dockerfile.reset
+    container_name: ctf_db_refresher
+    restart: unless-stopped
+    
+    # Service depends on database being healthy
+    depends_on:
+      db:
+        condition: service_healthy
+    
+    # Environment configuration
+    environment:
+      # MySQL connection settings
+      MYSQL_HOST: db
+      MYSQL_ROOT_PASSWORD: super_secure_root_password_123
+      
+      # Reset interval (in seconds)
+      # Default: 900 seconds = 15 minutes
+      # Customize as needed: 300 (5min), 600 (10min), 1800 (30min)
+      RESET_INTERVAL: 900
+      
+      # Path to init.sql inside container
+      INIT_SQL_PATH: /docker-entrypoint-initdb.d/init.sql
+      
+      # Python configuration
+      PYTHONUNBUFFERED: 1
+    
+    # Port mapping for Flask API
+    ports:
+      - "5001:5001"
+    
+    # Volume mounts
+    volumes:
+      # Share init.sql with refresher service
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    
+    # Networking
+    networks:
+      - ctf_network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  ctf_network:
+    driver: bridge
+    name: ctf_network
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  # Persistent MySQL data storage
+  # Comment this out if you want the database to reset on container restart
+  mysql_data:
+    driver: local
+    name: ctf_mysql_data
