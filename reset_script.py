@@ -237,7 +237,17 @@ def index():
         'endpoints': {
             'health_check': 'GET /health',
             'manual_reset': 'POST /reset',
-            'info': 'GET /'
+            'info': 'GET /',
+            'vulnerable_endpoints': {
+                'search_secrets': 'GET /api/search-secrets?search_term=<query>',
+                'get_message': 'GET /api/messages/<id>',
+                'list_messages': 'GET /api/messages',
+                'redeem_coupon': 'POST /api/coupons/<code>/redeem',
+                'list_coupons': 'GET /api/coupons',
+                'register_user': 'POST /api/register',
+                'login_user': 'POST /api/login',
+                'database_info': 'GET /api/info'
+            }
         },
         'configuration': {
             'mysql_host': MYSQL_HOST,
@@ -245,6 +255,302 @@ def index():
             'automatic_reset': True
         }
     }), 200
+
+
+# ============================================================================
+# CTF Vulnerable API Endpoints
+# ============================================================================
+
+def get_db_connection():
+    """Get MySQL connection for API endpoints (uses ctf_player credentials)."""
+    return pymysql.connect(
+        host=MYSQL_HOST,
+        user='ctf_player',
+        password='player_password_456',
+        database='ctf_db',
+        charset='utf8mb4',
+        cursorclass=DictCursor
+    )
+
+
+@app.route('/api/search-secrets', methods=['GET'])
+def search_secrets():
+    """
+    INTENTIONALLY VULNERABLE: SQL INJECTION
+    Search secrets by keyword with unvalidated input.
+    """
+    search_term = request.args.get('search_term', '')
+    
+    if not search_term:
+        return jsonify({'error': 'search_term parameter required'}), 400
+    
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            # INTENTIONALLY VULNERABLE: String concatenation allows SQL injection
+            query = f"SELECT id, secret_name, secret_value FROM secrets WHERE secret_name LIKE '%{search_term}%'"
+            logger.info(f"[SQL INJECTION] Executing: {query}")
+            
+            cursor.execute(query)
+            results = cursor.fetchall()
+        
+        connection.close()
+        
+        return jsonify({
+            'results': results,
+            'count': len(results),
+            'query_executed': query
+        }), 200
+        
+    except pymysql.Error as e:
+        return jsonify({
+            'error': 'Database error',
+            'details': str(e)
+        }), 500
+
+
+@app.route('/api/messages/<int:message_id>', methods=['GET'])
+def get_message(message_id):
+    """
+    INTENTIONALLY VULNERABLE: IDOR
+    Get message by ID without authorization check.
+    """
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM messages WHERE id = %s", (message_id,))
+            message = cursor.fetchone()
+        
+        connection.close()
+        
+        if message:
+            return jsonify({
+                'message': message,
+                'vulnerability': 'IDOR - No authorization check'
+            }), 200
+        else:
+            return jsonify({'error': 'Message not found'}), 404
+            
+    except pymysql.Error as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/messages', methods=['GET'])
+def list_messages():
+    """
+    INTENTIONALLY VULNERABLE: IDOR (Mass data exposure)
+    List all messages without filtering by user.
+    """
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM messages")
+            messages = cursor.fetchall()
+        
+        connection.close()
+        
+        return jsonify({
+            'messages': messages,
+            'count': len(messages),
+            'vulnerability': 'IDOR - All messages visible'
+        }), 200
+        
+    except pymysql.Error as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/coupons/<coupon_code>/redeem', methods=['POST'])
+def redeem_coupon(coupon_code):
+    """
+    INTENTIONALLY VULNERABLE: RACE CONDITION
+    Redeem coupon with non-atomic check-then-update.
+    """
+    data = request.get_json() or {}
+    user_id = data.get('user_id', 1)
+    
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            # Step 1: Check availability (NON-ATOMIC)
+            cursor.execute("SELECT * FROM coupons WHERE code = %s", (coupon_code,))
+            coupon = cursor.fetchone()
+            
+            if not coupon:
+                connection.close()
+                return jsonify({'error': 'Coupon not found'}), 404
+            
+            # VULNERABLE: Race condition window
+            if coupon['current_uses'] >= coupon['max_uses']:
+                connection.close()
+                return jsonify({
+                    'error': 'Coupon fully redeemed',
+                    'current_uses': coupon['current_uses'],
+                    'max_uses': coupon['max_uses']
+                }), 400
+            
+            # Simulate processing delay
+            time.sleep(0.1)
+            
+            # Step 2: Increment usage (SEPARATE QUERY)
+            cursor.execute(
+                "UPDATE coupons SET current_uses = current_uses + 1 WHERE code = %s",
+                (coupon_code,)
+            )
+            connection.commit()
+            
+            # Fetch updated coupon
+            cursor.execute("SELECT * FROM coupons WHERE code = %s", (coupon_code,))
+            updated_coupon = cursor.fetchone()
+        
+        connection.close()
+        
+        return jsonify({
+            'message': 'Coupon redeemed successfully',
+            'coupon': updated_coupon,
+            'vulnerability': 'RACE CONDITION - Non-atomic update'
+        }), 200
+        
+    except pymysql.Error as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/coupons', methods=['GET'])
+def list_coupons():
+    """List all available coupons."""
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM coupons")
+            coupons = cursor.fetchall()
+        
+        connection.close()
+        
+        return jsonify({
+            'coupons': coupons,
+            'hint': 'Try redeeming with multiple concurrent requests'
+        }), 200
+        
+    except pymysql.Error as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/register', methods=['POST'])
+def register_user():
+    """
+    INTENTIONALLY VULNERABLE: SQL TRUNCATION ATTACK
+    Register user with potential truncation.
+    """
+    data = request.get_json()
+    username = data.get('username', '')
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'error': 'username and password required'}), 400
+    
+    import hashlib
+    hashed_password = hashlib.md5(password.encode()).hexdigest()
+    
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            # VULNERABLE: No length validation before insert
+            cursor.execute(
+                "INSERT INTO users (username, password) VALUES (%s, %s)",
+                (username, hashed_password)
+            )
+            connection.commit()
+            
+            # Check what was actually stored
+            cursor.execute(
+                "SELECT username, LENGTH(username) as len FROM users WHERE username = %s",
+                (username[:20],)
+            )
+            stored_user = cursor.fetchone()
+        
+        connection.close()
+        
+        return jsonify({
+            'message': 'User registered',
+            'submitted_username': username,
+            'submitted_length': len(username),
+            'stored_username': stored_user['username'] if stored_user else None,
+            'stored_length': stored_user['len'] if stored_user else None,
+            'warning': 'Username truncated if > 20 chars'
+        }), 201
+        
+    except pymysql.Error as e:
+        return jsonify({
+            'error': 'Registration failed',
+            'details': str(e)
+        }), 400
+
+
+@app.route('/api/login', methods=['POST'])
+def login_user():
+    """Login using GameServer credentials."""
+    data = request.get_json()
+    username = data.get('username', '')
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'error': 'username and password required'}), 400
+    
+    import hashlib
+    hashed_password = hashlib.md5(password.encode()).hexdigest()
+    
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM users WHERE username = %s AND password = %s",
+                (username, hashed_password)
+            )
+            user = cursor.fetchone()
+        
+        connection.close()
+        
+        if user:
+            return jsonify({
+                'message': 'Login successful',
+                'user': {
+                    'id': user['id'],
+                    'username': user['username']
+                }
+            }), 200
+        else:
+            return jsonify({'error': 'Invalid credentials'}), 401
+            
+    except pymysql.Error as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/info', methods=['GET'])
+def database_info():
+    """Get database schema and statistics."""
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            # Get table list
+            cursor.execute("SHOW TABLES")
+            tables = [list(row.values())[0] for row in cursor.fetchall()]
+            
+            # Get record counts
+            stats = {}
+            for table in tables:
+                cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
+                stats[table] = cursor.fetchone()['count']
+        
+        connection.close()
+        
+        return jsonify({
+            'database': 'ctf_db',
+            'tables': tables,
+            'record_counts': stats,
+            'message': 'Database resets every 15 minutes'
+        }), 200
+        
+    except pymysql.Error as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # ============================================================================

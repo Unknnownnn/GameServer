@@ -18,14 +18,14 @@ from datetime import datetime
 
 # Configuration
 DB_CONFIG = {
-    'host': 'localhost',
+    'host': '134.209.146.43',
     'user': 'ctf_player',
     'password': 'player_password_456',
     'database': 'ctf_db',
-    'port': 3306
+    'port': 5001
 }
 
-RESET_API_URL = 'http://localhost:5001'
+RESET_API_URL = 'http://134.209.146.43:5001'
 
 # Colors for output
 class Colors:
