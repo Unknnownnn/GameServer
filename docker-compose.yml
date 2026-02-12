@@ -11,8 +11,8 @@ services:
       # Root credentials
       MYSQL_ROOT_PASSWORD: super_secure_root_password_123
       
-      # Database initialization
-      MYSQL_DATABASE: ctf_db
+      # Don't auto-create database - let init.sql handle it
+      # MYSQL_DATABASE: ctf_db
       
       # Character set configuration
       MYSQL_CHARSET: utf8mb4
@@ -44,15 +44,18 @@ services:
     
     # Networking
     networks:
-      - ctf_network
+      ctf_network:
+        aliases:
+          - db
+          - mysql
     
     # Health check
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-psuper_secure_root_password_123"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 60s
 
   # ==========================================================================
   # Database Reset & Watchdog Service
@@ -68,6 +71,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+        restart: true
     
     # Environment configuration
     environment:
@@ -97,7 +101,10 @@ services:
     
     # Networking
     networks:
-      - ctf_network
+      ctf_network:
+        aliases:
+          - refresher
+          - reset-service
     
     # Health check
     healthcheck:
@@ -105,7 +112,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 90s
 
 # ============================================================================
 # Networks
@@ -114,6 +121,9 @@ networks:
   ctf_network:
     driver: bridge
     name: ctf_network
+    driver_opts:
+      com.docker.network.bridge.name: ctf_bridge
+      com.docker.network.driver.mtu: 1500
 
 # ============================================================================
 # Volumes

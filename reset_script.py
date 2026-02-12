@@ -262,12 +262,12 @@ def index():
 # ============================================================================
 
 def get_db_connection():
-    """Get MySQL connection for API endpoints (uses ctf_player credentials)."""
+    """Get MySQL connection for API endpoints (uses ctop_user credentials)."""
     return pymysql.connect(
         host=MYSQL_HOST,
-        user='ctf_player',
-        password='player_password_456',
-        database='ctf_db',
+        user='ctop_user',
+        password='ctop_secure_2024',
+        database='ctop_university',
         charset='utf8mb4',
         cursorclass=DictCursor
     )
@@ -543,7 +543,7 @@ def database_info():
         connection.close()
         
         return jsonify({
-            'database': 'ctf_db',
+            'database': 'ctop_university',
             'tables': tables,
             'record_counts': stats,
             'message': 'Database resets every 15 minutes'

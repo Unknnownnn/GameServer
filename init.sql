@@ -145,29 +145,29 @@ CREATE TABLE payments (
 -- MD5 Collision Demo: alice and bob use different strings with same MD5 hash!
 -- ============================================================================
 
--- Admin: username='admin', password='admin2024'
--- MD5('admin2024') = 8d4db54daf7d67db5f3c96e43f61c609
+-- Admin: username='admin', password='admin123'
+-- MD5('admin123') = 0192023a7bbd73250516f069df18b500
 INSERT INTO users (student_id, username, password_hash, email, full_name, program, semester, cgpa, is_admin) VALUES 
-('ADMIN001', 'admin', '8d4db54daf7d67db5f3c96e43f61c609', 
+('ADMIN001', 'admin', '0192023a7bbd73250516f069df18b500', 
  'admin@ctop.edu', 'System Administrator', 'Administration', 0, 10.00, TRUE);
 
 -- Regular students with different passwords
 -- Alice: password='TEXTCOLLBYfGiJUETHQ4hEcKSMd5zYpgqf1YRDhkmxHkhPWptrkoyz28wnI9V0aHeAuaKnak'
 -- Bob: password='TEXTCOLLBYfGiJUETHQ4hAcKSMd5zYpgqf1YRDhkmxHkhPWptrkoyz28wnI9V0aHeAuaKnak'
--- Both hash to: faad49866e9498fc1719f5289e7a0269 (MD5 collision!)
--- Charlie: password='charlie123' -> MD5: f1940d88490bce94c4ecfcd743b5c3aa
--- Diana: password='diana456' -> MD5: 38b52dbb5488c5ea7d77b89775684652
--- Eve: password='eve789' -> MD5: 9c320a8ac9693b232783c69193c4dafa
+-- Both hash to: 008ee33a9d58b51cfeb425b0959121c9 (MD5 collision!)
+-- Charlie: password='charlie123' -> MD5: fc3dfd32e35af39df095e2a8b9930f6a
+-- Diana: password='diana456' -> MD5: 03afdbd66e7929b125f8597834fa83a4
+-- Eve: password='eve789' -> MD5: c80c1387909e49913e96c35d47043c36
 INSERT INTO users (student_id, username, password_hash, email, full_name, program, semester, cgpa, is_admin) VALUES 
-('2024CSE001', 'alice.sharma', 'faad49866e9498fc1719f5289e7a0269', 
+('2024CSE001', 'alice.sharma', '008ee33a9d58b51cfeb425b0959121c9', 
  'alice.sharma@ctop.edu', 'Alice Sharma', 'B.Tech Computer Science', 6, 9.85, FALSE),
-('2024CSE002', 'bob.patel', 'faad49866e9498fc1719f5289e7a0269', 
+('2024CSE002', 'bob.patel', '008ee33a9d58b51cfeb425b0959121c9', 
  'bob.patel@ctop.edu', 'Bob Patel', 'B.Tech Computer Science', 6, 8.92, FALSE),
-('2024ECE001', 'charlie.kumar', 'f1940d88490bce94c4ecfcd743b5c3aa', 
+('2024ECE001', 'charlie.kumar', 'fc3dfd32e35af39df095e2a8b9930f6a', 
  'charlie.kumar@ctop.edu', 'Charlie Kumar', 'B.Tech Electronics', 4, 9.10, FALSE),
-('2024MEC001', 'diana.reddy', '38b52dbb5488c5ea7d77b89775684652', 
+('2024MEC001', 'diana.reddy', '03afdbd66e7929b125f8597834fa83a4', 
  'diana.reddy@ctop.edu', 'Diana Reddy', 'B.Tech Mechanical', 4, 9.45, FALSE),
-('2024CSE003', 'eve.nair', '9c320a8ac9693b232783c69193c4dafa', 
+('2024CSE003', 'eve.nair', 'c80c1387909e49913e96c35d47043c36', 
  'eve.nair@ctop.edu', 'Eve Nair', 'B.Tech Computer Science', 2, 8.75, FALSE);
 
 -- ============================================================================
