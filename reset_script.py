@@ -84,7 +84,8 @@ def wait_for_database(max_retries=30, retry_delay=2):
 
 def reset_database():
     """
-    Drop the ctf_db database and reload from init.sql.
+    Completely drop and recreate the database from init.sql.
+    This ensures all data is reset to original values, overwriting any changes.
     Returns: (success: bool, message: str)
     """
     global last_reset_time, reset_count
@@ -103,7 +104,7 @@ def reset_database():
             with open(INIT_SQL_PATH, 'r', encoding='utf-8') as f:
                 sql_script = f.read()
             
-            # Connect to MySQL as root
+            # Connect to MySQL as root (without specifying a database)
             connection = pymysql.connect(
                 host=MYSQL_HOST,
                 user='root',
@@ -114,23 +115,42 @@ def reset_database():
             
             try:
                 with connection.cursor() as cursor:
-                    # Split SQL script by semicolons and execute each statement
-                    statements = [stmt.strip() for stmt in sql_script.split(';') if stmt.strip()]
+                    # Step 1: Explicitly drop the database to ensure clean slate
+                    logger.info("🗑️  Dropping existing database...")
+                    cursor.execute("DROP DATABASE IF EXISTS ctop_university")
+                    connection.commit()
+                    
+                    # Step 2: Split and execute all statements from init.sql
+                    # Remove comments and split by semicolons
+                    statements = []
+                    for line in sql_script.split('\n'):
+                        line = line.strip()
+                        # Skip empty lines and comment-only lines
+                        if not line or line.startswith('--'):
+                            continue
+                        statements.append(line)
+                    
+                    # Join back and split by semicolons
+                    cleaned_sql = ' '.join(statements)
+                    statements = [stmt.strip() for stmt in cleaned_sql.split(';') if stmt.strip()]
                     
                     logger.info(f"📝 Executing {len(statements)} SQL statements...")
                     
+                    executed = 0
                     for idx, statement in enumerate(statements, 1):
-                        # Skip comments and empty statements
-                        if statement.startswith('--') or not statement:
+                        if not statement or len(statement) < 5:
                             continue
                         
                         try:
                             cursor.execute(statement)
+                            executed += 1
                         except pymysql.Error as e:
-                            # Some statements like USE might fail, log but continue
-                            logger.debug(f"Statement {idx} note: {e}")
+                            # Log errors but continue execution
+                            logger.warning(f"Statement {idx} warning: {e}")
+                            logger.debug(f"Failed statement: {statement[:100]}...")
                     
                     connection.commit()
+                    logger.info(f"✅ Executed {executed} statements successfully")
                 
                 # Update state
                 last_reset_time = datetime.now()

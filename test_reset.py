@@ -57,22 +57,45 @@ def test_reset():
     print("\n🔄 Executing database reset...")
     try:
         with connection.cursor() as cursor:
+            # Step 1: Explicitly drop the database for a clean slate
+            print("   🗑️  Dropping existing database...")
+            cursor.execute("DROP DATABASE IF EXISTS ctop_university")
+            connection.commit()
+            print("   ✅ Database dropped")
+            
+            # Step 2: Remove comments and clean SQL
+            print("   📝 Cleaning SQL statements...")
+            cleaned_statements = []
+            for line in sql_script.split('\n'):
+                line = line.strip()
+                # Skip empty lines and comment-only lines
+                if not line or line.startswith('--'):
+                    continue
+                cleaned_statements.append(line)
+            
+            # Join and split by semicolons
+            cleaned_sql = ' '.join(cleaned_statements)
+            statements = [stmt.strip() for stmt in cleaned_sql.split(';') if stmt.strip()]
+            
+            print(f"   📝 Executing {len(statements)} SQL statements...")
+            
+            # Step 3: Execute all statements
             executed = 0
+            errors = 0
             for idx, statement in enumerate(statements, 1):
-                # Skip comments and empty statements
-                if statement.startswith('--') or not statement:
+                if not statement or len(statement) < 5:
                     continue
                 
                 try:
                     cursor.execute(statement)
                     executed += 1
                 except pymysql.Error as e:
-                    # Log but continue (some statements like USE might fail)
-                    if 'syntax' in str(e).lower() or 'error' in str(e).lower():
+                    errors += 1
+                    if errors <= 3:  # Only show first 3 errors
                         print(f"   ⚠️  Statement {idx} warning: {e}")
             
             connection.commit()
-            print(f"   ✅ Executed {executed} statements successfully")
+            print(f"   ✅ Executed {executed} statements successfully ({errors} warnings)")
         
         # Verify the reset
         print("\n🔍 Verifying database state...")
